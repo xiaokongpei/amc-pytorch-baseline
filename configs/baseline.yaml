@@ -1,0 +1,29 @@
+experiment_name: harper_pytorch_baseline
+data:
+  root: data/processed
+  metadata_dir: data/processed/metadata
+  train_dir: train
+  val_dir: validation
+  test_dir: test
+  class_names: classes-fixed.json
+  val_ratio: 0.1
+  pin_memory: true
+model:
+  input_length: 1024
+  input_channels: 2
+  num_classes: 24
+  use_se: true
+  use_dilation: true
+training:
+  epochs: 50
+  batch_size: 128
+  lr: 0.0001
+  weight_decay: 0.0
+  seed: 42
+  num_workers: 4
+  scheduler_patience: 6
+  scheduler_factor: 0.1
+  min_lr: 0.0000001
+runtime:
+  device: auto
+  run_root: runs
