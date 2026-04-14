@@ -69,5 +69,6 @@ If validation is derived from train with `val_ratio=0.1`, the practical target b
 ## Metadata
 
 `data/processed/metadata/classes-fixed.json` stores class names for reporting.
+`data/processed/metadata/slice_manifest.json` stores shard counts, sample counts, source paths, and slicing settings.
 
 If `validation/` is absent, validation is derived from `train/` using `val_ratio`.
