@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
+import sys
 from pathlib import Path
 from typing import Tuple
 
@@ -52,30 +53,59 @@ def ensure_clean_split_dir(path: Path, clean_output: bool) -> None:
 
 
 def extract_split(handle: h5py.File, indices: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    observations = np.asarray(handle["X"][indices], dtype=np.float32)
-    labels = np.argmax(np.asarray(handle["Y"][indices]), axis=1).astype(np.int64)
-    snrs = np.asarray(handle["Z"][indices]).reshape(-1).astype(np.int64)
+    order = np.argsort(indices)
+    sorted_indices = indices[order]
+    restore_order = np.argsort(order)
+    observations = np.asarray(handle["X"][sorted_indices], dtype=np.float32)[restore_order]
+    labels = np.argmax(np.asarray(handle["Y"][sorted_indices]), axis=1).astype(np.int64)[restore_order]
+    snrs = np.asarray(handle["Z"][sorted_indices]).reshape(-1).astype(np.int64)[restore_order]
     return observations, labels, snrs
 
 
-def write_shards(
+def _print_progress(message: str) -> None:
+    print(message, flush=True)
+
+
+def write_shard_files(
     split_dir: Path,
     observations: np.ndarray,
     labels: np.ndarray,
     snrs: np.ndarray,
+    shard_idx: int,
+) -> None:
+    prefix = f"shard_{shard_idx:03d}"
+    np.save(split_dir / f"{prefix}_observations.npy", observations)
+    np.save(split_dir / f"{prefix}_labels.npy", labels)
+    np.save(split_dir / f"{prefix}_snrs.npy", snrs)
+
+
+def write_split_shards_from_indices(
+    handle: h5py.File,
+    split_name: str,
+    split_dir: Path,
+    indices: np.ndarray,
     shard_size: int,
-) -> int:
+) -> dict:
     if shard_size <= 0:
         raise ValueError(f"shard_size must be positive, got {shard_size}")
-    n_shards = int(np.ceil(len(labels) / shard_size))
+
+    sample_count = int(len(indices))
+    if sample_count == 0:
+        _print_progress(f"[{split_name}] no samples to write")
+        return {"samples": 0, "shards": 0}
+
+    n_shards = int(np.ceil(sample_count / shard_size))
+    _print_progress(f"[{split_name}] start: samples={sample_count}, shard_size={shard_size}, shards={n_shards}")
+
     for shard_idx in range(n_shards):
         start = shard_idx * shard_size
-        end = min((shard_idx + 1) * shard_size, len(labels))
-        prefix = f"shard_{shard_idx:03d}"
-        np.save(split_dir / f"{prefix}_observations.npy", observations[start:end])
-        np.save(split_dir / f"{prefix}_labels.npy", labels[start:end])
-        np.save(split_dir / f"{prefix}_snrs.npy", snrs[start:end])
-    return n_shards
+        end = min((shard_idx + 1) * shard_size, sample_count)
+        shard_indices = indices[start:end]
+        observations, labels, snrs = extract_split(handle, shard_indices)
+        write_shard_files(split_dir, observations, labels, snrs, shard_idx)
+        _print_progress(f"[{split_name}] wrote shard {shard_idx + 1}/{n_shards} ({end}/{sample_count} samples)")
+
+    return {"samples": sample_count, "shards": n_shards}
 
 
 def write_manifest(path: Path, payload: dict) -> None:
@@ -103,20 +133,32 @@ def main():
         seed=args.seed,
     )
 
-    with h5py.File(args.src_hdf5, "r") as handle:
-        train_obs, train_labels, train_snrs = extract_split(handle, train_indices)
-        validation_obs, validation_labels, validation_snrs = extract_split(handle, validation_indices)
-        test_obs, test_labels, test_snrs = extract_split(handle, test_indices)
-
-    train_shards = write_shards(train_dir, train_obs, train_labels, train_snrs, args.shard_size)
-    validation_shards = write_shards(
-        validation_dir,
-        validation_obs,
-        validation_labels,
-        validation_snrs,
-        args.shard_size,
+    _print_progress(
+        f"Preparing slices with train={len(train_indices)}, validation={len(validation_indices)}, test={len(test_indices)}"
     )
-    test_shards = write_shards(test_dir, test_obs, test_labels, test_snrs, args.shard_size)
+
+    with h5py.File(args.src_hdf5, "r") as handle:
+        train_manifest = write_split_shards_from_indices(
+            handle=handle,
+            split_name="train",
+            split_dir=train_dir,
+            indices=train_indices,
+            shard_size=args.shard_size,
+        )
+        validation_manifest = write_split_shards_from_indices(
+            handle=handle,
+            split_name="validation",
+            split_dir=validation_dir,
+            indices=validation_indices,
+            shard_size=args.shard_size,
+        )
+        test_manifest = write_split_shards_from_indices(
+            handle=handle,
+            split_name="test",
+            split_dir=test_dir,
+            indices=test_indices,
+            shard_size=args.shard_size,
+        )
 
     shutil.copy2(args.class_names_path, metadata_dir / "classes-fixed.json")
 
@@ -130,13 +172,13 @@ def main():
         "seed": args.seed,
         "shard_size": args.shard_size,
         "splits": {
-            "train": {"samples": int(len(train_labels)), "shards": train_shards},
-            "validation": {"samples": int(len(validation_labels)), "shards": validation_shards},
-            "test": {"samples": int(len(test_labels)), "shards": test_shards},
+            "train": train_manifest,
+            "validation": validation_manifest,
+            "test": test_manifest,
         },
     }
     write_manifest(metadata_dir / "slice_manifest.json", manifest)
-    print(json.dumps(manifest, indent=2))
+    _print_progress(json.dumps(manifest, indent=2))
 
 
 if __name__ == "__main__":
