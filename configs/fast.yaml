@@ -1,0 +1,27 @@
+experiment_name: harper_pytorch_baseline
+data:
+  root: data/processed
+  pin_memory: true
+  # "mmap": low RAM, OS caches; "preload": fastest, needs RAM
+  mode: preload
+model:
+  input_length: 1024
+  input_channels: 2
+  num_classes: 24
+  use_se: true
+  se_reduction: 2
+  use_dilation: true
+training:
+  epochs: 9999
+  batch_size: 128
+  lr: 0.001
+  weight_decay: 0.0
+  seed: 42
+  num_workers: 0
+  use_amp: false
+  scheduler_patience: 6
+  scheduler_factor: 0.1
+  min_lr: 0.0000001
+runtime:
+  device: auto
+  run_root: runs

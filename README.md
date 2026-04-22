@@ -1,71 +1,104 @@
 # AMC PyTorch Baseline
 
-Standalone PyTorch baseline for automatic modulation classification.
+Standalone PyTorch mainline for automatic modulation classification.
+
+## Status
+
+This repository is the only active execution baseline for the project.
+
+- formal training entry: `scripts/train_fast.py`
+- formal slice-building entry: `scripts/build_fast_slices.py`
+- formal config entry: `configs/fast.yaml`
+
+The file names still contain `fast`, but within project governance they now mean the official baseline path rather than a temporary side path.
 
 ## Scope
 
-This repository is the new PyTorch mainline for:
+This repository is the active PyTorch mainline for:
 
 - baseline training
-- baseline evaluation
+- post-train test evaluation
 - SNR-sweep reporting
+- checkpoint saving
 - future pruning, quantization, and architecture experiments
 
-## Data
+## Data Contract
 
-This project does not prepare datasets. It consumes already-prepared sliced assets.
+This project does not prepare raw datasets by default. It consumes already-prepared processed assets in the current fast-baseline format.
 
 Default semantic locations:
 
 - `data/processed/`
 - `data/processed/metadata/`
+- `data/train_indexes.csv`
+- `data/test_indexes.csv`
 
-Expected split layout:
+Expected processed layout:
 
 ```text
-data/processed/
-  train/
-    shard_000_observations.npy | .npz | .pt
-    shard_000_labels.npy | .npz | .pt
-    shard_000_snrs.npy | .npz | .pt
-    shard_001_observations.npy | .npz | .pt
-    ...
-  validation/
-    ...
-  test/
-    ...
-  metadata/
-    classes-fixed.json
+data/
+  train_indexes.csv
+  test_indexes.csv
+  processed/
+    train.pt
+    validation.pt
+    test.pt
+    metadata/
+      classes-fixed.json
+      slice_manifest.json
 ```
 
-Recommended shard size follows the original Harper split strategy:
+Each split `.pt` file stores:
 
-- about `2000` samples per shard
-- train and validation may be derived from the original train split
-- test keeps its own shard set
-
-If `validation/` is missing, validation is derived from the training split by `val_ratio`.
-
-You can also point the scripts to external data roots with CLI arguments.
+- `observations`
+- `labels`
+- `snrs`
 
 ## Quick Start
 
-```bash
-python scripts/train_baseline.py --config configs/baseline.yaml
-python scripts/eval_baseline.py --config configs/baseline.yaml --checkpoint runs/<run_name>/checkpoints/best.pt
-```
-
-## Build Full Slices
+### 1. Build processed `.pt` slices
 
 ```bash
-python scripts/build_full_slices.py \
+python scripts/build_fast_slices.py \
   --src-hdf5 <path-to-GOLD_XYZ_OSC.0001_1024.hdf5> \
-  --train-index-path <path-to-train_indexes.csv> \
-  --test-index-path <path-to-test_indexes.csv> \
-  --class-names-path <path-to-classes-fixed.json> \
+  --train-index-path data/train_indexes.csv \
+  --test-index-path data/test_indexes.csv \
+  --class-names-path data/processed/metadata/classes-fixed.json \
   --output-root data/processed \
   --val-ratio 0.1 \
-  --shard-size 2000
+  --clean-output
 ```
 
-Add `--clean-output` only when you intentionally want to replace an existing sliced dataset directory.
+### 2. Train baseline
+
+```bash
+python scripts/train_fast.py \
+  --config configs/fast.yaml \
+  --data-root data/processed
+```
+
+Training writes a new run under `runs/<run_name>/`.
+
+### 3. Outputs
+
+Typical run outputs include:
+
+- `runs/<run_name>/config.json`
+- `runs/<run_name>/train_log.json`
+- `runs/<run_name>/metrics.json`
+- `runs/<run_name>/snr_metrics.json`
+- `runs/<run_name>/summary.md`
+- `runs/<run_name>/checkpoints/best.pt`
+- `runs/<run_name>/checkpoints/last.pt`
+
+## Remote Use
+
+For AutoDL or Kaggle:
+
+- place processed data where `train_fast.py` can read `train.pt`, `validation.pt`, and `test.pt`
+- keep each training run in a new `runs/<run_name>/`
+- do not overwrite existing control runs
+
+## Historical Note
+
+Old TensorFlow / Harper paths are historical reference only. Do not use them as the default baseline entry from this repo.

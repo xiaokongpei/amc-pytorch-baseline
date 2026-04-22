@@ -24,6 +24,7 @@ class HarperBaseline(nn.Module):
         input_channels: int = 2,
         num_classes: int = 24,
         use_se: bool = True,
+        se_reduction: int = 2,
         use_dilation: bool = True,
     ):
         super().__init__()
@@ -36,7 +37,7 @@ class HarperBaseline(nn.Module):
         for index, (out_channels, kernel, dilation) in enumerate(zip(channels, kernels, dilations), start=1):
             layers.append(ConvBlock(current_channels, out_channels, kernel, dilation))
             if use_se and index < 7:
-                layers.append(SEBlock(out_channels))
+                layers.append(SEBlock(out_channels, reduction=se_reduction))
             current_channels = out_channels
 
         self.features = nn.Sequential(*layers)
