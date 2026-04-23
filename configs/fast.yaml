@@ -9,6 +9,7 @@ model:
   input_channels: 2
   num_classes: 24
   use_se: true
+  se_policy: all
   use_dilation: true
 training:
   epochs: 9999

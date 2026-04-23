@@ -40,6 +40,7 @@ def _build_model(config: dict, device: torch.device) -> HarperBaseline:
         input_channels=int(config["model"]["input_channels"]),
         num_classes=int(config["model"]["num_classes"]),
         use_se=bool(config["model"]["use_se"]),
+        se_policy=str(config["model"].get("se_policy", "all")),
         use_dilation=bool(config["model"]["use_dilation"]),
     ).to(device)
 
