@@ -35,6 +35,15 @@ def _normalize_state_dict_keys(state_dict: dict) -> dict:
     return state_dict
 
 
+def _build_model(config: dict, device: torch.device) -> HarperBaseline:
+    return HarperBaseline(
+        input_channels=int(config["model"]["input_channels"]),
+        num_classes=int(config["model"]["num_classes"]),
+        use_se=bool(config["model"]["use_se"]),
+        use_dilation=bool(config["model"]["use_dilation"]),
+    ).to(device)
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default="configs/fast.yaml")
@@ -72,13 +81,7 @@ def main():
     print(f"Val: {len(dataloaders['val'].dataset)}")
     print(f"Test: {len(dataloaders['test'].dataset)}")
 
-    model = HarperBaseline(
-        input_channels=int(config["model"]["input_channels"]),
-        num_classes=int(config["model"]["num_classes"]),
-        use_se=bool(config["model"]["use_se"]),
-        se_reduction=int(config["model"].get("se_reduction", 2)),
-        use_dilation=bool(config["model"]["use_dilation"]),
-    ).to(device)
+    model = _build_model(config, device)
 
     torch.set_float32_matmul_precision("high")
     model = torch.compile(model)
@@ -112,7 +115,9 @@ def main():
     write_train_log(run_dir / "train_log.json", history)
 
     checkpoint = load_checkpoint(run_dir / "checkpoints" / "best.pt", map_location=device)
-    model.load_state_dict(_normalize_state_dict_keys(checkpoint["model_state_dict"]))
+    eval_model = _build_model(config, device)
+    eval_model.load_state_dict(_normalize_state_dict_keys(checkpoint["model_state_dict"]))
+    eval_model.eval()
 
     class_names_path = Path(config["data"]["root"]) / "metadata" / "classes-fixed.json"
     class_names = None
@@ -121,7 +126,7 @@ def main():
 
     print("\nEvaluating model on test set...")
     metrics, snr_metrics, detailed_metrics = evaluate_model(
-        model,
+        eval_model,
         dataloaders["test"],
         device,
         num_classes=int(config["model"]["num_classes"]),
