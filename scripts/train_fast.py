@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 import torch
+from torch import nn
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -20,6 +21,7 @@ from src.engine.checkpointing import load_checkpoint
 from src.engine.trainer import fit
 from src.eval.metrics import evaluate_model
 from src.eval.reporting import generate_all_reports, write_train_log
+from src.models.cldnn import CLDNN
 from src.models.harper_baseline import HarperBaseline
 from src.utils.config import apply_overrides, load_config
 from src.utils.paths import make_run_name, prepare_run_dir
@@ -35,14 +37,34 @@ def _normalize_state_dict_keys(state_dict: dict) -> dict:
     return state_dict
 
 
-def _build_model(config: dict, device: torch.device) -> HarperBaseline:
-    return HarperBaseline(
-        input_channels=int(config["model"]["input_channels"]),
-        num_classes=int(config["model"]["num_classes"]),
-        use_se=bool(config["model"]["use_se"]),
-        se_policy=str(config["model"].get("se_policy", "all")),
-        use_dilation=bool(config["model"]["use_dilation"]),
-    ).to(device)
+def _build_model(config: dict, device: torch.device) -> nn.Module:
+    model_name = str(config["model"].get("name", "harper")).lower()
+
+    if model_name == "harper":
+        model = HarperBaseline(
+            input_channels=int(config["model"]["input_channels"]),
+            num_classes=int(config["model"]["num_classes"]),
+            use_se=bool(config["model"]["use_se"]),
+            se_policy=str(config["model"].get("se_policy", "all")),
+            use_dilation=bool(config["model"]["use_dilation"]),
+        )
+    elif model_name == "cldnn":
+        model = CLDNN(
+            input_channels=int(config["model"]["input_channels"]),
+            num_classes=int(config["model"]["num_classes"]),
+            conv_channels=tuple(config["model"].get("conv_channels", [32, 64, 96, 128])),
+            conv_kernels=tuple(config["model"].get("conv_kernels", [7, 5, 5, 3])),
+            pool_sizes=tuple(config["model"].get("pool_sizes", [2, 2, 2, 2])),
+            lstm_hidden_size=int(config["model"].get("lstm_hidden_size", 128)),
+            lstm_layers=int(config["model"].get("lstm_layers", 1)),
+            bidirectional=bool(config["model"].get("bidirectional", True)),
+            classifier_hidden_dims=tuple(config["model"].get("classifier_hidden_dims", [128, 128])),
+            dropout=float(config["model"].get("dropout", 0.2)),
+        )
+    else:
+        raise ValueError(f"Unsupported model.name={model_name!r}")
+
+    return model.to(device)
 
 
 def parse_args():

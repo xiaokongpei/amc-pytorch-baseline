@@ -9,7 +9,8 @@ This repository is the only active execution baseline for the project.
 - formal training entry: `scripts/train_fast.py`
 - formal slice-building entry: `scripts/build_stratified_slices.py`
 - compatibility slice-building entry: `scripts/build_fast_slices.py`
-- formal config entry: `configs/fast.yaml`
+- baseline CNN config entry: `configs/fast.yaml`
+- baseline CLDNN config entry: `configs/cldnn.yaml`
 
 The file names still contain `fast`, but within project governance they now mean the official baseline path rather than a temporary side path.
 
@@ -74,7 +75,7 @@ python scripts/build_stratified_slices.py \
   --clean-output
 ```
 
-### 2. Train baseline
+### 2. Train Harper baseline
 
 ```bash
 python scripts/train_fast.py \
@@ -82,9 +83,17 @@ python scripts/train_fast.py \
   --data-root data/processed_v2_stratified_64_16_20
 ```
 
+### 3. Train CLDNN baseline
+
+```bash
+python scripts/train_fast.py \
+  --config configs/cldnn.yaml \
+  --data-root data/processed_v2_stratified_64_16_20
+```
+
 Training writes a new run under `runs/<run_name>/`.
 
-### 3. Outputs
+### 4. Outputs
 
 Typical run outputs include:
 

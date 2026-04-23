@@ -1,0 +1,32 @@
+experiment_name: cldnn_baseline
+data:
+  root: data/processed_v2_stratified_64_16_20
+  pin_memory: true
+  mode: mmap
+model:
+  name: cldnn
+  input_length: 1024
+  input_channels: 2
+  num_classes: 24
+  conv_channels: [32, 64, 96, 128]
+  conv_kernels: [7, 5, 5, 3]
+  pool_sizes: [2, 2, 2, 2]
+  lstm_hidden_size: 128
+  lstm_layers: 1
+  bidirectional: true
+  classifier_hidden_dims: [128, 128]
+  dropout: 0.2
+training:
+  epochs: 9999
+  batch_size: 512
+  lr: 0.001
+  weight_decay: 0.0
+  seed: 42
+  num_workers: 0
+  use_amp: false
+  scheduler_patience: 6
+  scheduler_factor: 0.1
+  min_lr: 0.0000001
+runtime:
+  device: auto
+  run_root: runs
