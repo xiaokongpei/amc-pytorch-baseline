@@ -43,7 +43,7 @@ DEFAULT_SPLIT_ROOT = "data/splits_v2_stratified_64_16_20"
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--src-hdf5", required=True)
-    parser.add_argument("--class-names-path", default=None)
+    parser.add_argument("--class-names-path", default="data/classes-fixed.json")
     parser.add_argument("--output-root", default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--split-root", default=DEFAULT_SPLIT_ROOT)
     parser.add_argument("--train-ratio", type=float, default=0.64)

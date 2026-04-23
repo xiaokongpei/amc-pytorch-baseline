@@ -65,6 +65,7 @@ Each split `.pt` file stores:
 ```bash
 python scripts/build_stratified_slices.py \
   --src-hdf5 <path-to-GOLD_XYZ_OSC.0001_1024.hdf5> \
+  --class-names-path data/classes-fixed.json \
   --output-root data/processed_v2_stratified_64_16_20 \
   --split-root data/splits_v2_stratified_64_16_20 \
   --train-ratio 0.64 \

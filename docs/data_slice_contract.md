@@ -58,6 +58,12 @@ The current formal split is stratified by `modulation x SNR`:
 
 Every modulation and SNR group is split independently before the final train, validation, and test sets are merged.
 
+## Class Names
+
+The canonical class-name file is tracked at:
+
+- `data/classes-fixed.json`
+
 ## Compatibility
 
 The previous `data/processed/` location can still be used to reproduce older runs, but new experiments should use `data/processed_v2_stratified_64_16_20/`.
