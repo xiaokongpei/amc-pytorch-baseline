@@ -9,13 +9,20 @@ The active PyTorch baseline consumes processed `.pt` bundle files.
 ## Required Layout
 
 ```text
-data/processed/
+data/processed_v2_stratified_64_16_20/
   train.pt
   validation.pt
   test.pt
   metadata/
     classes-fixed.json
     slice_manifest.json
+    split_summary.csv
+    snr_class_distribution.csv
+
+data/splits_v2_stratified_64_16_20/
+  train_indexes.csv
+  validation_indexes.csv
+  test_indexes.csv
 ```
 
 ## Bundle Keys
@@ -36,18 +43,21 @@ The dataset loader normalizes observations into channel-first `(N, 2, 1024)` sem
 
 ## Metadata
 
-- `data/processed/metadata/classes-fixed.json` stores class names for reporting
-- `data/processed/metadata/slice_manifest.json` stores source paths, split sizes, and slicing settings
+- `data/processed_v2_stratified_64_16_20/metadata/classes-fixed.json` stores class names for reporting
+- `data/processed_v2_stratified_64_16_20/metadata/slice_manifest.json` stores source paths, split sizes, and slicing settings
+- `data/processed_v2_stratified_64_16_20/metadata/split_summary.csv` stores split-level counts
+- `data/processed_v2_stratified_64_16_20/metadata/snr_class_distribution.csv` stores modulation x SNR counts per split
 
-## Index Files
+## Split Rule
 
-The canonical train/test split index files live at:
+The current formal split is stratified by `modulation x SNR`:
 
-- `data/train_indexes.csv`
-- `data/test_indexes.csv`
+- train: `64%`
+- validation: `16%`
+- test: `20%`
 
-Validation is derived from the train index set using `val_ratio`.
+Every modulation and SNR group is split independently before the final train, validation, and test sets are merged.
 
-## Historical Note
+## Compatibility
 
-Older shard-style `train/validation/test/` directory contracts are no longer the active default for this repository.
+The previous `data/processed/` location can still be used to reproduce older runs, but new experiments should use `data/processed_v2_stratified_64_16_20/`.

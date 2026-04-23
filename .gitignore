@@ -9,3 +9,5 @@ data/processed/*
 !data/processed/.gitkeep
 data/processed/metadata/*
 !data/processed/metadata/.gitkeep
+data/processed_v2_stratified_*/
+data/splits_v2_stratified_*/

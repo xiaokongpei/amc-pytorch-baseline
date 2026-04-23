@@ -7,7 +7,8 @@ Standalone PyTorch mainline for automatic modulation classification.
 This repository is the only active execution baseline for the project.
 
 - formal training entry: `scripts/train_fast.py`
-- formal slice-building entry: `scripts/build_fast_slices.py`
+- formal slice-building entry: `scripts/build_stratified_slices.py`
+- compatibility slice-building entry: `scripts/build_fast_slices.py`
 - formal config entry: `configs/fast.yaml`
 
 The file names still contain `fast`, but within project governance they now mean the official baseline path rather than a temporary side path.
@@ -26,26 +27,29 @@ This repository is the active PyTorch mainline for:
 
 This project does not prepare raw datasets by default. It consumes already-prepared processed assets in the current fast-baseline format.
 
-Default semantic locations:
+Default semantic locations for the current v2 stratified dataset:
 
-- `data/processed/`
-- `data/processed/metadata/`
-- `data/train_indexes.csv`
-- `data/test_indexes.csv`
+- `data/processed_v2_stratified_64_16_20/`
+- `data/processed_v2_stratified_64_16_20/metadata/`
+- `data/splits_v2_stratified_64_16_20/`
 
 Expected processed layout:
 
 ```text
 data/
-  train_indexes.csv
-  test_indexes.csv
-  processed/
+  splits_v2_stratified_64_16_20/
+    train_indexes.csv
+    validation_indexes.csv
+    test_indexes.csv
+  processed_v2_stratified_64_16_20/
     train.pt
     validation.pt
     test.pt
     metadata/
       classes-fixed.json
       slice_manifest.json
+      split_summary.csv
+      snr_class_distribution.csv
 ```
 
 Each split `.pt` file stores:
@@ -56,16 +60,16 @@ Each split `.pt` file stores:
 
 ## Quick Start
 
-### 1. Build processed `.pt` slices
+### 1. Build v2 stratified `.pt` slices
 
 ```bash
-python scripts/build_fast_slices.py \
+python scripts/build_stratified_slices.py \
   --src-hdf5 <path-to-GOLD_XYZ_OSC.0001_1024.hdf5> \
-  --train-index-path data/train_indexes.csv \
-  --test-index-path data/test_indexes.csv \
-  --class-names-path data/processed/metadata/classes-fixed.json \
-  --output-root data/processed \
-  --val-ratio 0.1 \
+  --output-root data/processed_v2_stratified_64_16_20 \
+  --split-root data/splits_v2_stratified_64_16_20 \
+  --train-ratio 0.64 \
+  --validation-ratio 0.16 \
+  --test-ratio 0.20 \
   --clean-output
 ```
 
@@ -74,7 +78,7 @@ python scripts/build_fast_slices.py \
 ```bash
 python scripts/train_fast.py \
   --config configs/fast.yaml \
-  --data-root data/processed
+  --data-root data/processed_v2_stratified_64_16_20
 ```
 
 Training writes a new run under `runs/<run_name>/`.
@@ -99,6 +103,6 @@ For AutoDL or Kaggle:
 - keep each training run in a new `runs/<run_name>/`
 - do not overwrite existing control runs
 
-## Historical Note
+## Compatibility
 
-Old TensorFlow / Harper paths are historical reference only. Do not use them as the default baseline entry from this repo.
+`scripts/build_fast_slices.py` is retained only for reproducing older local runs that already depend on the previous index files. New baseline and ablation runs should use `scripts/build_stratified_slices.py` and the v2 stratified data root.
