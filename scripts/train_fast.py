@@ -60,6 +60,9 @@ def _build_model(config: dict, device: torch.device) -> nn.Module:
             bidirectional=bool(config["model"].get("bidirectional", True)),
             classifier_hidden_dims=tuple(config["model"].get("classifier_hidden_dims", [128, 128])),
             dropout=float(config["model"].get("dropout", 0.2)),
+            denoise_type=str(config["model"].get("denoise_type", "none")),
+            denoise_position=str(config["model"].get("denoise_position", "after_conv")),
+            denoise_reduction=int(config["model"].get("denoise_reduction", 4)),
         )
     else:
         raise ValueError(f"Unsupported model.name={model_name!r}")
@@ -133,6 +136,7 @@ def main():
         epochs=int(config["training"]["epochs"]),
         device=device,
         run_dir=run_dir,
+        early_stopping_patience=int(config["training"].get("early_stopping_patience", 10)),
         use_amp=bool(config["training"].get("use_amp", True)),
     )
     write_train_log(run_dir / "train_log.json", history)

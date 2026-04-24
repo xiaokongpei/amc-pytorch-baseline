@@ -1,4 +1,4 @@
-experiment_name: cldnn_baseline
+experiment_name: cldnn_shrink_garrote
 data:
   root: data/processed_v2_stratified_64_16_20
   pin_memory: true
@@ -16,7 +16,7 @@ model:
   bidirectional: true
   classifier_hidden_dims: [128, 128]
   dropout: 0.2
-  denoise_type: none
+  denoise_type: garrote
   denoise_position: after_conv
   denoise_reduction: 4
 training:

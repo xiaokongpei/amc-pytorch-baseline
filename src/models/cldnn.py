@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Sequence
 
 import torch
+import torch.nn.functional as F
 from torch import nn
 
 
@@ -35,6 +36,50 @@ class TemporalStatsPooling(nn.Module):
         return torch.cat([mean, max_values], dim=1)
 
 
+class ShrinkDenoise1D(nn.Module):
+    """Learnable channel-wise shrinkage denoise block for 1D feature maps."""
+
+    def __init__(
+        self,
+        channels: int,
+        shrinkage: str = "garrote",
+        reduction: int = 4,
+        eps: float = 1e-6,
+    ) -> None:
+        super().__init__()
+        shrinkage = shrinkage.lower()
+        if shrinkage not in {"soft", "garrote"}:
+            raise ValueError("ShrinkDenoise1D shrinkage must be 'soft' or 'garrote'.")
+
+        hidden = max(channels // reduction, 1)
+        self.shrinkage = shrinkage
+        self.eps = eps
+        self.avg_pool = nn.AdaptiveAvgPool1d(1)
+        self.max_pool = nn.AdaptiveMaxPool1d(1)
+        self.threshold = nn.Sequential(
+            nn.Conv1d(channels * 2, hidden, kernel_size=1, bias=False),
+            nn.BatchNorm1d(hidden),
+            nn.ReLU(inplace=True),
+            nn.Conv1d(hidden, channels, kernel_size=1, bias=True),
+            nn.Sigmoid(),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        magnitude = x.abs()
+        avg_stats = self.avg_pool(magnitude)
+        max_stats = self.max_pool(magnitude)
+        scale = self.threshold(torch.cat([avg_stats, max_stats], dim=1))
+        tau = scale * avg_stats
+
+        if self.shrinkage == "soft":
+            return torch.sign(x) * F.relu(magnitude - tau)
+
+        keep = magnitude > tau
+        safe_denominator = torch.where(x >= 0, x + self.eps, x - self.eps)
+        shrunk = x - (tau.square() / safe_denominator)
+        return torch.where(keep, shrunk, torch.zeros_like(x))
+
+
 class CLDNN(nn.Module):
     def __init__(
         self,
@@ -48,6 +93,9 @@ class CLDNN(nn.Module):
         bidirectional: bool = True,
         classifier_hidden_dims: Sequence[int] = (128, 128),
         dropout: float = 0.2,
+        denoise_type: str = "none",
+        denoise_position: str = "after_conv",
+        denoise_reduction: int = 4,
     ) -> None:
         super().__init__()
         if not (
@@ -56,6 +104,12 @@ class CLDNN(nn.Module):
             raise ValueError("CLDNN expects exactly 4 convolution blocks.")
         if len(classifier_hidden_dims) != 2:
             raise ValueError("CLDNN expects exactly 2 classifier hidden layers.")
+        denoise_type = denoise_type.lower()
+        denoise_position = denoise_position.lower()
+        if denoise_type not in {"none", "soft", "garrote"}:
+            raise ValueError("denoise_type must be one of: none, soft, garrote.")
+        if denoise_position != "after_conv":
+            raise ValueError("CLDNN currently supports only denoise_position='after_conv'.")
 
         layers = []
         current_channels = input_channels
@@ -71,6 +125,15 @@ class CLDNN(nn.Module):
             current_channels = out_channels
 
         self.features = nn.Sequential(*layers)
+        self.denoise = (
+            nn.Identity()
+            if denoise_type == "none"
+            else ShrinkDenoise1D(
+                channels=current_channels,
+                shrinkage=denoise_type,
+                reduction=denoise_reduction,
+            )
+        )
         self.lstm = nn.LSTM(
             input_size=current_channels,
             hidden_size=lstm_hidden_size,
@@ -97,6 +160,7 @@ class CLDNN(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.features(x)
+        x = self.denoise(x)
         x = x.transpose(1, 2)
         x, _ = self.lstm(x)
         x = self.pool(x)
