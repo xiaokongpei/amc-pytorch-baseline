@@ -14,10 +14,11 @@ DATA_ROOT="${DATA_ROOT:-${PROJECT_ROOT}/data/processed_v2_stratified_64_16_20}"
 CONFIG_PATH="${CONFIG_PATH:-configs/cldnn_shrink_garrote.yaml}"
 MODE="${MODE:-mmap}"
 RUN_NAME="${RUN_NAME:-cldnn_shrink_garrote_$(date +%m%d_%H%M)}"
-LOG_PATH="${LOG_PATH:-runs/${RUN_NAME}.log}"
+RUN_DIR="${RUN_DIR:-runs/${RUN_NAME}}"
+LOG_PATH="${LOG_PATH:-${RUN_DIR}/train.log}"
 
 cd "${PROJECT_ROOT}"
-mkdir -p runs
+mkdir -p "${RUN_DIR}"
 
 nohup python -u scripts/train_fast.py \
   --config "${CONFIG_PATH}" \
@@ -27,5 +28,6 @@ nohup python -u scripts/train_fast.py \
   > "${LOG_PATH}" 2>&1 &
 
 echo "RUN_NAME=${RUN_NAME}"
+echo "RUN_DIR=${PROJECT_ROOT}/${RUN_DIR}"
 echo "LOG_PATH=${PROJECT_ROOT}/${LOG_PATH}"
 echo "PID=$!"
