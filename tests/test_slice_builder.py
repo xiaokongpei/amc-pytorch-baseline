@@ -1,18 +1,24 @@
 import numpy as np
 
-from scripts.build_full_slices import split_train_validation_indices
+from scripts.build_stratified_slices import split_group, validate_ratios
 
 
-def test_split_train_validation_indices_preserves_total_count():
-    indices = np.arange(10, dtype=np.int64)
-    train_indices, validation_indices = split_train_validation_indices(indices, val_ratio=0.2, seed=42)
-    assert len(train_indices) == 8
-    assert len(validation_indices) == 2
-    assert sorted(np.concatenate([train_indices, validation_indices]).tolist()) == indices.tolist()
+def test_split_group_preserves_total_count():
+    indices = np.arange(100, dtype=np.int64)
+    rng = np.random.default_rng(42)
+    train, validation, test = split_group(indices, rng, train_ratio=0.64, validation_ratio=0.16)
+    assert len(train) + len(validation) + len(test) == 100
+    assert sorted(np.concatenate([train, validation, test]).tolist()) == indices.tolist()
 
 
-def test_split_train_validation_indices_zero_ratio():
-    indices = np.arange(5, dtype=np.int64)
-    train_indices, validation_indices = split_train_validation_indices(indices, val_ratio=0.0, seed=42)
-    assert len(train_indices) == 5
-    assert len(validation_indices) == 0
+def test_split_group_approximate_ratios():
+    indices = np.arange(10000, dtype=np.int64)
+    rng = np.random.default_rng(42)
+    train, validation, test = split_group(indices, rng, train_ratio=0.64, validation_ratio=0.16)
+    assert abs(len(train) / 10000 - 0.64) < 0.01
+    assert abs(len(validation) / 10000 - 0.16) < 0.01
+    assert abs(len(test) / 10000 - 0.20) < 0.01
+
+
+def test_validate_ratios_accepts_valid():
+    validate_ratios(0.64, 0.16, 0.20)  # should not raise
